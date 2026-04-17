@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ucscxenatoolspy"
+version = "0.1.0"
+description = "Download and explore datasets from UCSC Xena data hubs (Python port of UCSCXenaTools)"
+readme = "README.md"
+license = "GPL-3.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Shixiang Wang (original R)", email = "w_shixiang@163.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "pandas>=2.0",
+    "httpx>=0.25",
+    "pydantic>=2.0",
+    "pyarrow>=14.0",
+    "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-httpx>=0.30",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ropensci/UCSCXenaTools"
+"Bug Tracker" = "https://github.com/ropensci/UCSCXenaTools/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ucscxenatoolspy"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests that require live Xena servers",
+]
