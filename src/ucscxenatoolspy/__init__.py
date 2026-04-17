@@ -9,6 +9,7 @@ from ucscxenatoolspy.core.xena_hub import (
     hosts,
     cohorts,
     datasets,
+    samples,
 )
 from ucscxenatoolspy.core.xena_data import (
     load_xena_data,
@@ -19,6 +20,8 @@ from ucscxenatoolspy.workflow.filter import xena_filter
 from ucscxenatoolspy.workflow.query import xena_query, QueryResult
 from ucscxenatoolspy.workflow.download import xena_download
 from ucscxenatoolspy.workflow.prepare import xena_prepare
+from ucscxenatoolspy.workflow.scan import xena_scan
+from ucscxenatoolspy.workflow.query_probe_map import xena_query_probe_map
 from ucscxenatoolspy.fetch.dense import (
     fetch_dataset_samples,
     fetch_dataset_identifiers,
@@ -35,6 +38,7 @@ __all__ = [
     "hosts",
     "cohorts",
     "datasets",
+    "samples",
     "xena_default_hosts",
     "DEFAULT_HOSTS",
     "load_xena_data",
@@ -45,6 +49,8 @@ __all__ = [
     "xena_query",
     "xena_download",
     "xena_prepare",
+    "xena_scan",
+    "xena_query_probe_map",
     "QueryResult",
     # Fetch API
     "fetch_dataset_samples",

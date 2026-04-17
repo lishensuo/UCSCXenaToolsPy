@@ -177,3 +177,89 @@ def _p_dataset_list(host: str, cohorts: list | str) -> Any:
     if isinstance(cohorts, str):
         cohorts = [cohorts]
     return _p_query("datasetList", host, cohorts=cohorts)
+
+
+# ── Samples queries (for samples() function) ────────────────────────────────
+
+def _quote_cohort(cohort: str) -> str:
+    """Quote cohort, treating (unassigned) as nil."""
+    if cohort == "(unassigned)":
+        return "nil"
+    return _quote(cohort)
+
+
+def _samples_any_query(what: str) -> str:
+    """Build query for 'any' samples (union across datasets/cohorts)."""
+    return f'''
+        (map :value
+        (query {{
+        :select [:%distinct.value]
+        :from [:dataset]
+        :join [:field [:= :dataset.id :dataset_id]
+        :code [:= :field_id :field.id]]
+        :where [:and
+        [:in {what}]
+        [:= :field.name "sampleID"]]
+        }}))
+        '''
+
+
+def _samples_all_query(where: str, what: str, n: int) -> str:
+    """Build query for 'all' samples (intersection across datasets/cohorts)."""
+    return f'''
+        (map :value
+        (query {{
+        :select [:value] :from [ {{
+        :select [{where} :value]
+        :modifiers [:distinct]
+        :join [:field [:= :dataset.id :dataset_id]
+        :code [:= :field_id :field.id]]
+        :where [:and [:in {where} {what}]
+        [:= :field.name "sampleID"]]
+        :from [:dataset]
+        }}]
+        :group-by [:value]
+        :having [:= :%count.value {n}]
+        }}))
+        '''
+
+
+def _p_cohort_samples_any(host: str, cohorts: list | str) -> Any:
+    """Get any samples from cohorts (union)."""
+    if isinstance(cohorts, str):
+        cohorts = [cohorts]
+    # Build the 'what' part: :cohort ["coh1" "coh2" ...]
+    cohort_strs = " ".join(_quote_cohort(c) for c in cohorts)
+    what = f':cohort [{cohort_strs}]'
+    query = _samples_any_query(what)
+    return xena_post(host, query)
+
+
+def _p_cohort_samples_all(host: str, cohorts: list | str) -> Any:
+    """Get all samples from cohorts (intersection)."""
+    if isinstance(cohorts, str):
+        cohorts = [cohorts]
+    cohort_strs = " ".join(_quote_cohort(c) for c in cohorts)
+    what = f'[{cohort_strs}]'
+    query = _samples_all_query(":cohorts", what, len(cohorts))
+    return xena_post(host, query)
+
+
+def _p_dataset_samples_any(host: str, datasets: list | str) -> Any:
+    """Get any samples from datasets (union)."""
+    if isinstance(datasets, str):
+        datasets = [datasets]
+    dataset_strs = " ".join(_quote(d) for d in datasets)
+    what = f':dataset.name [{dataset_strs}]'
+    query = _samples_any_query(what)
+    return xena_post(host, query)
+
+
+def _p_dataset_samples_all(host: str, datasets: list | str) -> Any:
+    """Get all samples from datasets (intersection)."""
+    if isinstance(datasets, str):
+        datasets = [datasets]
+    dataset_strs = " ".join(_quote(d) for d in datasets)
+    what = f'[{dataset_strs}]'
+    query = _samples_all_query(":dataset.name", what, len(datasets))
+    return xena_post(host, query)
