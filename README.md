@@ -6,8 +6,18 @@ Python port of the R package [UCSCXenaTools](https://github.com/ropensci/UCSCXen
 
 ## Installation
 
+**From PyPI (recommended):**
+
 ```bash
 pip install ucscxenatoolspy
+```
+
+**From local source:**
+
+```bash
+# Clone or download the source code first
+pip install .              # standard install
+pip install -e .           # editable install (for development)
 ```
 
 ## Quick Start
