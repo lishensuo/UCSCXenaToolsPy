@@ -30,10 +30,15 @@ def make_cache_key(identifier: str, dataset: str, host: str, **kwargs: Any) -> s
 
     Mirrors R's digest::digest(list(id, dataset, host, ...)).
     """
-    payload = json.dumps(
-        {"identifier": identifier, "dataset": dataset, "host": host, **kwargs},
-        sort_keys=True,
-    )
+    return make_key(identifier, dataset, host, **kwargs)
+
+
+def make_key(*args: Any, **kwargs: Any) -> str:
+    """Generate a generic MD5 cache key from any arguments.
+
+    Useful for caching results beyond molecule_value queries (e.g. xena_query URLs).
+    """
+    payload = json.dumps({"args": args, "kwargs": kwargs}, sort_keys=True)
     return hashlib.md5(payload.encode()).hexdigest()
 
 

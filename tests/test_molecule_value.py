@@ -134,8 +134,8 @@ class TestGetData:
 
     def test_cache_miss_calls_api(self):
         with patch("ucscxenatoolspy.query.molecule_value.read_cache", return_value=None), \
-             patch("ucscxenatoolspy.query.molecule_value.fetch_dense_values", return_value=[[5.5, 6.6]]), \
-             patch("ucscxenatoolspy.fetch.dense.fetch_dataset_samples", return_value=["S1", "S2"]), \
+             patch("ucscxenatoolspy.query.molecule_value.fetch_dense_values",
+                   return_value=pd.DataFrame([[5.5, 6.6]], columns=["S1", "S2"])), \
              patch("ucscxenatoolspy.query.molecule_value.write_cache") as mock_write:
             result = get_data("ccle_expression", "TP53", host="https://tcga.xenahubs.net", cache=True)
             assert result.tolist() == [5.5, 6.6]

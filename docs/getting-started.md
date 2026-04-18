@@ -76,6 +76,15 @@ urls = xena_default_hosts()
 url = xena_default_hosts("tcgaHub")
 ```
 
+## Dataset Catalog
+
+Browse all 2314 datasets from 11 hubs in the [interactive catalog](xena-datasets-catalog.html). It supports:
+
+- **Search** — filter by any keyword (gene name, cohort, dataset ID)
+- **Sort** — click any column header
+- **Page size** — choose 10 / 25 / 50 / 100 rows per page
+- **Copy CSV** — one-click export of the filtered results
+
 ## Next Steps
 
 - [Workflow Tutorial](workflow-tutorial.md) — step-by-step guide to the full pipeline

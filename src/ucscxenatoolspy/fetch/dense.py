@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import time
 
+import pandas as pd
+
 from ucscxenatoolspy.api.datalog import (
     _p_dataset_fetch,
     _p_dataset_samples,
@@ -91,7 +93,7 @@ def fetch_dense_values(
     check: bool = True,
     use_probeMap: bool = False,
     time_limit: float = 30.0,
-) -> list:
+) -> pd.DataFrame:
     """Fetch values from a dense matrix dataset.
 
     Args:
@@ -104,19 +106,21 @@ def fetch_dense_values(
         time_limit: Timeout for query response in seconds.
 
     Returns:
-        When use_probeMap=True: List of dicts with keys 'gene', 'scores', 'position'.
-        When use_probeMap=False: 2D list of values (rows=identifiers, cols=samples).
+        DataFrame indexed by identifier (gene/probe) with samples as columns.
+        When use_probeMap=True, row names are gene symbols; otherwise probe IDs.
 
     Examples:
         >>> # Query with Ensembl IDs (probes)
         >>> fetch_dense_values(host, dataset, identifiers=['ENSG00000000005.5'],
         ...                    samples=['TCGA-02-0047-01'], check=False)
-        [[-9.966]]
+                       TCGA-02-0047-01
+        ENSG00000000005.5       -9.966
 
         >>> # Query with gene symbols (requires probeMap)
         >>> fetch_dense_values(host, dataset, identifiers=['TP53'],
         ...                    samples=['TCGA-02-0047-01'], check=False, use_probeMap=True)
-        [{'gene': 'TP53', 'scores': [[5.799]], 'position': [...]}]
+              TCGA-02-0047-01
+        TP53           5.799
     """
     # Fetch all samples/identifiers if not specified
     if samples is None:
@@ -127,7 +131,6 @@ def fetch_dense_values(
             # Get all identifiers from probeMap
             url = has_probeMap(host, dataset, return_url=True)
             if url:
-                import pandas as pd
                 identifiers = list(pd.read_csv(url, sep="\t", usecols=[1]).iloc[:, 0])
             else:
                 identifiers = fetch_dataset_identifiers(host, dataset)
@@ -135,18 +138,21 @@ def fetch_dense_values(
             identifiers = fetch_dataset_identifiers(host, dataset)
 
     if check:
-        # Validate inputs
-        all_identifiers = fetch_dataset_identifiers(host, dataset)
-        valid_ids = [i for i in identifiers if i in set(all_identifiers)]
-        if not valid_ids:
-            raise ValueError(f"No valid identifiers found for {host}/{dataset}")
-        identifiers = valid_ids
-
+        # Validate samples
         all_samples_set = set(fetch_dataset_samples(host, dataset))
         valid_samples = [s for s in samples if s in all_samples_set]
         if not valid_samples:
             raise ValueError(f"No valid samples found for {host}/{dataset}")
         samples = valid_samples
+
+        # Validate identifiers — skip when using probeMap since identifiers
+        # are gene symbols that won't match probe-level IDs (e.g. ENSG...)
+        if not use_probeMap:
+            all_identifiers = fetch_dataset_identifiers(host, dataset)
+            valid_ids = [i for i in identifiers if i in set(all_identifiers)]
+            if not valid_ids:
+                raise ValueError(f"No valid identifiers found for {host}/{dataset}")
+            identifiers = valid_ids
 
     # Try probeMap path if requested
     if use_probeMap and has_probeMap(host, dataset):
@@ -156,14 +162,18 @@ def fetch_dense_values(
         )
         # Result is a list of dicts: [{'gene': 'TP53', 'position': [...], 'scores': [[...]]}, ...]
         if isinstance(result, list) and len(result) > 0 and "scores" in result[0]:
-            return result
+            data = {}
+            for item in result:
+                data[item["gene"]] = item["scores"][0]
+            return pd.DataFrame(data, index=samples).T
 
     # Default fetch path
     result = _retry_query(
         lambda: _p_dataset_fetch(host, dataset, samples, identifiers),
         time_limit,
     )
-    return result
+    # result is a 2D list: rows=identifiers, cols=samples
+    return pd.DataFrame(result, index=identifiers, columns=samples)
 
 
 def fetch_sparse_values(

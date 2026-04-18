@@ -14,7 +14,7 @@ import pandas as pd
 
 from ucscxenatoolspy.core.defaults import HOST_NAME_TO_URL
 from ucscxenatoolspy.core.xena_data import load_xena_data
-from ucscxenatoolspy.fetch.dense import fetch_dense_values
+from ucscxenatoolspy.fetch.dense import fetch_dense_values, has_probeMap
 from ucscxenatoolspy.utils.cache import get_cache_dir, make_cache_key, read_cache, write_cache
 
 
@@ -113,19 +113,19 @@ def get_data(
         if cached is not None:
             return pd.Series(cached["values"], index=cached["index"], name=identifier)
 
-    # Fetch from API
-    result = fetch_dense_values(
-        host, dataset, identifiers=[identifier], samples=None, check=False
+    # Auto-use probeMap if available — allows gene symbol lookup on probe-based datasets
+    use_probe = has_probeMap(host, dataset)
+
+    # Fetch from API — returns a DataFrame
+    df = fetch_dense_values(
+        host, dataset, identifiers=[identifier], samples=None, check=False,
+        use_probeMap=use_probe,
     )
 
-    # Convert API result to pd.Series
-    # fetch_dense_values returns a 2D list: [[val1, val2, ...]] for single identifier
-    if isinstance(result, list) and len(result) > 0:
-        values = result[0]
-        # We need sample names — fetch them
-        from ucscxenatoolspy.fetch.dense import fetch_dataset_samples
-        sample_ids = fetch_dataset_samples(host, dataset)
-        series = pd.Series(values, index=sample_ids[:len(values)], name=identifier)
+    # Convert to pd.Series
+    if isinstance(df, pd.DataFrame) and len(df) > 0:
+        series = df.iloc[0]
+        series.name = identifier
     else:
         series = pd.Series([], dtype=float, name=identifier)
 

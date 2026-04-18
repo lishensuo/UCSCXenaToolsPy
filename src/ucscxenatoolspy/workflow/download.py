@@ -66,7 +66,7 @@ def xena_download(
         dest_files.append(str(dest_path))
 
     # Download files
-    with httpx.Client(verify=False, timeout=60.0) as client:
+    with httpx.Client(verify=False, timeout=60.0, follow_redirects=True) as client:
         for i, (url, dest) in enumerate(tqdm(
             zip(query_result.urls, dest_files),
             total=len(query_result.urls),
@@ -108,9 +108,10 @@ def xena_download(
     if trans_slash:
         print("Note: '/' in file names was replaced with '__'.")
 
-    # Return updated QueryResult with destfiles info
+    # Return updated QueryResult with local file paths
     return QueryResult(
         hosts=query_result.hosts,
         datasets=query_result.datasets,
         urls=query_result.urls,
+        destfiles=dest_files,
     )

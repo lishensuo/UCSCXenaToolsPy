@@ -47,12 +47,20 @@ def xena_prepare(
     files: list[str] = []
 
     if isinstance(objects, QueryResult):
-        # QueryResult doesn't store destfiles directly yet,
-        # so this expects files to have been downloaded
-        raise NotImplementedError(
-            "Passing QueryResult directly requires downloaded files. "
-            "Use xena_download() first, then pass file paths."
-        )
+        # Use locally downloaded file paths from xena_download
+        if not objects.destfiles:
+            raise ValueError(
+                "QueryResult has no local file paths. "
+                "Use xena_download() first, then pass the returned QueryResult."
+            )
+        files = objects.destfiles
+        # Verify files exist
+        existing = [f for f in files if Path(f).is_file()]
+        if not existing:
+            raise FileNotFoundError(
+                f"None of the expected files exist. Did you run xena_download()? Paths: {files}"
+            )
+        files = existing
     elif isinstance(objects, (str, Path)):
         p = Path(objects)
         if p.is_dir():

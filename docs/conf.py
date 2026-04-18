@@ -31,7 +31,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # ── Theme ─────────────────────────────────────────────────────────────────
 
-html_theme = "furo"
+html_theme = "sphinx_rtd_theme"
 
 # ── Napoleon (Google-style docstrings) ────────────────────────────────────
 
@@ -67,3 +67,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable", None),
 }
+
+# ── Extra HTML pages (not part of Sphinx toctree) ─────────────────────────
+
+html_extra_path = ["xena-datasets-catalog.html"]
