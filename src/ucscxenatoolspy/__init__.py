@@ -29,6 +29,15 @@ from ucscxenatoolspy.fetch.dense import (
     fetch_dense_values,
     fetch_sparse_values,
 )
+from ucscxenatoolspy.query.molecule_value import (
+    query_molecule_value,
+    get_data,
+)
+
+from ucscxenatoolspy.tcga import (
+    tcga_clinical,
+    tcga_survival,
+)
 
 __version__ = "0.1.0"
 
@@ -58,4 +67,10 @@ __all__ = [
     "has_probeMap",
     "fetch_dense_values",
     "fetch_sparse_values",
+    # Query API
+    "query_molecule_value",
+    "get_data",
+    # TCGA built-in data
+    "tcga_clinical",
+    "tcga_survival",
 ]

@@ -64,6 +64,24 @@ if has_probeMap(host, dataset):
     print("Gene symbol queries available")
 ```
 
+### Query Molecule Value (Single ID & Genomic Signature)
+
+```python
+from ucscxenatoolspy import query_molecule_value
+
+# Single gene — returns pd.Series indexed by sample
+values = query_molecule_value(
+    "ccle/CCLE_copynumber_byGene_2013-12-03",
+    "TP53",
+)
+
+# Genomic signature formula — auto-queries each gene and evaluates
+signature = query_molecule_value(
+    "ccle/CCLE_copynumber_byGene_2013-12-03",
+    "TP53 + 2 * KRAS - 1.3 * PTEN",
+)
+```
+
 ### Metadata
 
 ```python
@@ -80,6 +98,8 @@ df = xena_data_update()
 
 - **Core workflow**: Generate, Filter, Query, Download, Prepare (mirrors R package)
 - **Fetch API**: Direct API queries for samples, identifiers, dense/sparse values
+- **Query Molecule Value**: Single gene lookup and genomic signature formula evaluation
+- **File caching**: Persistent disk cache for query results (configurable via `UCSCXENA_CACHE_DIR`)
 - **ProbeMap support**: Query by gene symbols (via probe-to-gene mapping)
 - **Metadata management**: Bundled snapshot + live update from 12 Xena hubs
 - **R-compatible naming**: camelCase parameter names for easy migration
@@ -100,6 +120,8 @@ df = xena_data_update()
 | `fetch_dense_values(host, dataset, ...)` | Query dense matrix data |
 | `fetch_sparse_values(host, dataset, ...)` | Query sparse/mutation data |
 | `has_probeMap(host, dataset)` | Check probeMap availability |
+| `query_molecule_value(dataset, molecule, host)` | Single gene or formula query (returns pd.Series) |
+| `get_data(dataset, identifier, host)` | Fetch single identifier with caching |
 
 ## Supported Hubs
 
