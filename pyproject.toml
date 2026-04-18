@@ -36,9 +36,18 @@ dev = [
     "pytest-httpx>=0.30",
     "pytest-cov>=4.0",
 ]
+docs = [
+    "sphinx>=7.0",
+    "furo>=2024.0",
+    "myst-parser>=3.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=2.0",
+    "linkify-it-py>=2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/ropensci/UCSCXenaTools"
+Documentation = "https://ucscxenatoolspy.readthedocs.io/"
 "Bug Tracker" = "https://github.com/ropensci/UCSCXenaTools/issues"
 
 [tool.hatch.build.targets.wheel]

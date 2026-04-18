@@ -145,10 +145,11 @@ def query_molecule_value(
     """Query molecular data from a UCSC Xena dataset.
 
     Supports two modes:
+
     1. Single identifier: returns a pd.Series of values indexed by sample.
-       Example: query_molecule_value("ccle_expression", "TP53")
+       Example: ``query_molecule_value("ccle_expression", "TP53")``
     2. Genomic signature formula: evaluates the formula against queried genes.
-       Example: query_molecule_value("ccle_expression", "TP53 + 2 * KRAS - PTEN")
+       Example: ``query_molecule_value("ccle_expression", "TP53 + 2 * KRAS - PTEN")``
 
     Mirrors R's query_molecule_value() from UCSCXenaShiny.
 

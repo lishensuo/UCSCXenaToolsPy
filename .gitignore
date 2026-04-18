@@ -48,5 +48,8 @@ htmlcov/
 *.local
 .env
 
+# Sphinx
+docs/_build/
+
 # Claude Code
 .claude/

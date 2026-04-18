@@ -1,7 +1,7 @@
 """Default UCSC Xena host URLs and name mappings."""
 
-# Host URL → short name mapping
-# Mirrors R's .xena_hosts
+# Host URL -> short name mapping
+#: Mirrors R's .xena_hosts. Contains 12 default Xena hub URLs.
 DEFAULT_HOSTS: dict[str, str] = {
     "https://ucscpublic.xenahubs.net": "publicHub",
     "https://tcga.xenahubs.net": "tcgaHub",
