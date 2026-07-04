@@ -18,16 +18,29 @@ This skill supports four API tasks:
 
 ## Quick Workflow
 
-1. Confirm the API service is running before any biological query:
-   - Check the base URL, e.g. `curl https://ucscxenatoolspy.onrender.com/`, and verify it returns service metadata.
-   - Check `curl https://ucscxenatoolspy.onrender.com/health` and verify it returns an OK status.
-   - If either check fails, stop and report the connection error instead of querying task endpoints.
+1. Confirm the API service is reachable before any biological query. Try in this order:
+   - **Remote first:** `curl https://ucscxenatoolspy.onrender.com/health` — use this URL if it responds OK.
+   - **Local fallback:** If remote is unreachable (Render free tier may spin down), try `curl http://127.0.0.1:8765/health` — use this URL if it responds OK.
+   - **Neither available:** Tell the user both endpoints are down and give the local setup steps:
+     ```
+     Remote API at ucscxenatoolspy.onrender.com is unavailable, and no local service
+     is running. To run the API locally:
+     
+       git clone https://github.com/lishensuo/UCSCXenaToolsPy.git
+       cd UCSCXenaToolsPy/ucscxenatoolspy
+       pip install -e ".[api]"
+       uvicorn ucscxenatoolspy.api_service.main:app --port 8765
+     
+     Then re-run your query and I'll try the local service.
+     ```
+   - Remember which base URL worked; use it for all subsequent requests in this session.
 2. Normalize the user request into one or more API tasks.
-3. Query the API directly with `curl` — simplest, no dependency or path issues:
-   - `curl https://ucscxenatoolspy.onrender.com/api/v1/cancers`
-   - `curl "https://ucscxenatoolspy.onrender.com/api/v1/diff-expr?gene=TP53&cancer=LUAD"`
-   - `curl "https://ucscxenatoolspy.onrender.com/api/v1/corr?gene1=TP53&gene2=EGFR&cancer=LUAD"`
-   - `curl "https://ucscxenatoolspy.onrender.com/api/v1/survival?gene=TP53&cancer=LUAD"`
+3. Query the API directly with `curl` — simplest, no dependency or path issues. Use whichever base URL passed the health check in step 1:
+   - `curl <BASE_URL>/api/v1/cancers`
+   - `curl "<BASE_URL>/api/v1/diff-expr?gene=TP53&cancer=LUAD"`
+   - `curl "<BASE_URL>/api/v1/corr?gene1=TP53&gene2=EGFR&cancer=LUAD"`
+   - `curl "<BASE_URL>/api/v1/survival?gene=TP53&cancer=LUAD"`
+   (Replace `<BASE_URL>` with `https://ucscxenatoolspy.onrender.com` or `http://127.0.0.1:8765`.)
 4. The helper script `scripts/query_tcga_api.py` provides compact one-line summaries via its `summarize()` function. Use it when you want deterministic formatting:
    - `python .claude/skills/xena-tcga-gene-query/scripts/query_tcga_api.py diff-expr --gene TP53 --cancer LUAD`
 5. If API key auth is enabled, pass `-H "X-API-Key: VALUE"` with curl, or `--api-key VALUE` with the script.
@@ -74,11 +87,10 @@ For broad questions like "TP53在肺癌中的作用" or "What is the role of TP5
 
 ## Running The Helper Script
 
-Before running task-specific commands, confirm the local service is reachable:
+Before running task-specific commands, confirm the service is reachable (remote first, then local fallback):
 
 ```bash
-curl https://ucscxenatoolspy.onrender.com/
-curl https://ucscxenatoolspy.onrender.com/health
+curl https://ucscxenatoolspy.onrender.com/health || curl http://127.0.0.1:8765/health
 ```
 
 Then, from any working directory, run:
@@ -92,7 +104,7 @@ python .claude/skills/xena-tcga-gene-query/scripts/query_tcga_api.py survival --
 
 Common options:
 
-- `--base-url https://ucscxenatoolspy.onrender.com` overrides the API URL.
+- `--base-url URL` overrides the API URL. Use `https://ucscxenatoolspy.onrender.com` (remote) or `http://127.0.0.1:8765` (local), whichever is reachable.
 - `--api-key VALUE` sends `X-API-Key: VALUE`.
 - `--timeout 120` adjusts request timeout seconds.
 - `--json` returns raw JSON without a short human summary.
