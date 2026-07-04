@@ -233,6 +233,113 @@ UCSCXENA_ANALYSIS_TIMEOUT_SECONDS=120
 UCSCXENA_ENABLE_MYGENE=false
 ```
 
+### Deployment guide
+
+The API is a normal ASGI application:
+
+```text
+ucscxenatoolspy.api_service.main:app
+```
+
+A minimal production deployment usually has `uvicorn` running on localhost and a reverse proxy such as Nginx or Caddy handling HTTPS, public routing, and request size/time limits.
+
+1. Install the package on the server.
+
+```bash
+git clone <your-repo-url>
+cd ucscxenatoolspy
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -e ".[api]"
+```
+
+2. Create an environment file for the service, for example `/etc/ucscxena-api.env`.
+
+```bash
+UCSCXENA_API_KEYS=replace-with-a-long-random-key
+UCSCXENA_CORS_ORIGINS=https://your-frontend.example.org
+UCSCXENA_ENABLE_DOCS=false
+UCSCXENA_TRUST_PROXY_HEADERS=true
+UCSCXENA_ANALYSIS_CONCURRENCY=4
+UCSCXENA_ANALYSIS_TIMEOUT_SECONDS=120
+UCSCXENA_RATE_LIMIT_STORAGE_URI=redis://127.0.0.1:6379/0
+```
+
+`UCSCXENA_API_KEYS` is optional for private/internal deployments, but recommended for any public endpoint. If you run multiple workers, containers, or servers, configure `UCSCXENA_RATE_LIMIT_STORAGE_URI` so rate limits are shared; otherwise slowapi falls back to in-memory state per process.
+
+3. Start the API locally.
+
+```bash
+uvicorn ucscxenatoolspy.api_service.main:app \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --workers 1 \
+  --proxy-headers \
+  --forwarded-allow-ips 127.0.0.1
+```
+
+Keep `--workers 1` unless you have configured Redis-backed rate limiting and have enough memory for repeated TCGA analysis workloads. Increase `UCSCXENA_ANALYSIS_CONCURRENCY` before increasing ASGI workers when you mainly need more parallel analysis capacity.
+
+4. Manage the process with systemd.
+
+```ini
+[Unit]
+Description=ucscxenatoolspy TCGA Analysis API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ucscxenatoolspy
+EnvironmentFile=/etc/ucscxena-api.env
+ExecStart=/opt/ucscxenatoolspy/.venv/bin/uvicorn ucscxenatoolspy.api_service.main:app --host 127.0.0.1 --port 8765 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+After saving it as `/etc/systemd/system/ucscxena-api.service`:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ucscxena-api
+sudo systemctl status ucscxena-api
+```
+
+5. Put Nginx in front of the local service.
+
+```nginx
+server {
+    listen 80;
+    server_name api.example.org;
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 180s;
+    }
+}
+```
+
+Enable HTTPS with your normal certificate workflow, for example certbot or your platform load balancer. The FastAPI app should stay bound to `127.0.0.1` unless you intentionally expose it directly.
+
+6. Verify the deployment.
+
+```bash
+curl https://api.example.org/health
+curl -H "X-API-Key: replace-with-a-long-random-key" \
+  "https://api.example.org/api/v1/diff-expr?gene=TP53&cancer=LUAD"
+```
+
+The expected health response is `{"status":"ok"}`. If docs are enabled for a non-public staging instance, the OpenAPI UI is available at `/docs`.
+
 ### Endpoints
 
 | Method | Path | Rate | Description |

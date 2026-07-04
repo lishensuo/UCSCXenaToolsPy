@@ -12,7 +12,7 @@ from collections.abc import Callable
 from functools import partial
 from typing import Any
 
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -282,28 +282,3 @@ async def survival(
         return _error_response(504, e)
 
 
-LEGACY_REDIRECTS = {
-    "/api/cancers": "/api/v1/cancers",
-    "/api/diff-expr": "/api/v1/diff-expr",
-    "/api/corr": "/api/v1/corr",
-    "/api/survival": "/api/v1/survival",
-}
-
-for old_path, new_path in LEGACY_REDIRECTS.items():
-    async def _redirect(
-        request: Request,
-        _old: str = old_path,
-        _new: str = new_path,
-    ):
-        qs = str(request.url.query)
-        target = _new + ("?" + qs if qs else "")
-        return Response(
-            status_code=308,
-            headers={
-                "Location": target,
-                "X-Deprecation": f"{_old} is deprecated; use {_new}",
-            },
-        )
-
-    _redirect.__name__ = f"legacy_{old_path.replace('/', '_')}"
-    app.get(old_path)(_redirect)

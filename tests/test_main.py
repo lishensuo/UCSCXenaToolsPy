@@ -110,22 +110,6 @@ class TestListCancers:
             assert "has_normal" in c
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Legacy redirects
-# ═══════════════════════════════════════════════════════════════════════════
-
-class TestLegacyRedirects:
-    def test_api_cancers_redirects(self, client: TestClient):
-        r = client.get("/api/cancers", follow_redirects=False)
-        assert r.status_code == 308
-        assert r.headers["Location"] == "/api/v1/cancers"
-        assert "X-Deprecation" in r.headers
-
-    def test_api_diff_expr_redirects(self, client: TestClient):
-        r = client.get("/api/diff-expr?gene=TP53&cancer=LUAD", follow_redirects=False)
-        assert r.status_code == 308
-        assert r.headers["Location"] == "/api/v1/diff-expr?gene=TP53&cancer=LUAD"
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Parameter validation
