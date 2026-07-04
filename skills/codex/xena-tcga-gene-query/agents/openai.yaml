@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCGA Gene Tumor Query"
+  short_description: "Query TCGA gene expression, correlation, and survival APIs."
+  default_prompt: "Use $xena-tcga-gene-query to assess TP53 expression and survival relevance in LUAD."

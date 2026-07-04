@@ -187,6 +187,15 @@ survival = tcga_survival()
 
 A FastAPI web service providing statistical analysis on TCGA gene expression data. Start the server and query via browser or `curl`.
 
+> **Live Demo**: A temporary instance is deployed at **[https://ucscxenatoolspy.onrender.com](https://ucscxenatoolspy.onrender.com)** — try it directly without local setup:
+>
+> ```bash
+> curl https://ucscxenatoolspy.onrender.com/health
+> curl "https://ucscxenatoolspy.onrender.com/api/v1/diff-expr?gene=TP53&cancer=LUAD"
+> ```
+>
+> ⚠️ Render free tier spins down after inactivity; the first request may take ~30 seconds to wake up.
+
 Install the optional API dependencies before running the service:
 
 ```bash
@@ -488,6 +497,70 @@ curl "http://127.0.0.1:8765/api/v1/survival?gene=TP53&cancer=LUAD" | python -m j
 # Health check
 curl http://127.0.0.1:8765/health
 ```
+
+## AI Assistant Skills
+
+Pre-built integrations that let AI coding assistants (Claude Code, OpenAI Codex, Cursor) query the TCGA Analysis API directly — ask about gene expression, correlation, or survival in natural language (English or Chinese), and the assistant answers with data from the API.
+
+### Supported Platforms
+
+| Platform | Directory | Type |
+|----------|-----------|------|
+| **Claude Code** | `skills/claude/xena-tcga-gene-query/` | Skill (SKILL.md + helper script) |
+| **OpenAI Codex** | `skills/codex/xena-tcga-gene-query/` | Agent (agent config + helper script) |
+| **Cursor** | `skills/cursor/xena-tcga-gene-query/` | Rule (.mdc + helper script) |
+
+### What They Do
+
+Each skill/agent/rule teaches the AI assistant to:
+
+- **List cancers** — what TCGA cancers are available, which have normal tissue controls
+- **Differential expression** — tumor vs normal comparison for a gene (Wilcoxon test)
+- **Gene correlation** — Spearman correlation between two genes in primary tumors
+- **Survival analysis** — expression-associated survival across OS, DSS, DFI, PFI (log-rank)
+- **Cancer name mapping** — resolves Chinese/English common names (肺癌→LUAD+LUSC, 乳腺癌→BRCA, etc.) and gene aliases (HER2→ERBB2)
+
+The assistant queries the deployed API at `https://ucscxenatoolspy.onrender.com` by default, so no local server setup is required.
+
+### Install a Skill
+
+**Claude Code** — register the skill globally or per-project:
+
+```bash
+# Per-project (from repo root)
+cp -r skills/claude/xena-tcga-gene-query .claude/skills/
+
+# Or install into your user skills directory
+cp -r skills/claude/xena-tcga-gene-query ~/.claude/skills/
+```
+
+Then restart Claude Code and ask: *"Is TP53 upregulated in LUAD?"*
+
+**Cursor** — copy the rule into your project:
+
+```bash
+cp skills/cursor/xena-tcga-gene-query/xena-tcga-gene-query.mdc .cursor/rules/
+```
+
+The rule is set to `alwaysApply: true`, so it activates automatically in every chat.
+
+**OpenAI Codex** — register as a custom agent:
+
+Place the `skills/codex/xena-tcga-gene-query/` directory in your Codex agents directory, or use the Codex dashboard to create an agent from `agents/openai.yaml`.
+
+### Example Queries
+
+Once the skill is installed, you can ask questions like:
+
+| English | Chinese |
+|---------|---------|
+| "Is TP53 upregulated in LUAD?" | "TP53在肺癌中高表达吗？" |
+| "Are EGFR and KRAS co-expressed in lung cancer?" | "EGFR和KRAS在肺癌中共表达吗？" |
+| "Does HER2 expression affect breast cancer survival?" | "HER2高表达影响乳腺癌预后吗？" |
+| "What cancers have normal tissue controls?" | "哪些癌症有正常组织对照？" |
+| "Show me correlation between TP53 and MDM2 in GBM" | "TP53和MDM2在胶质母细胞瘤中的相关性" |
+
+The assistant will call the API endpoints and synthesize results with proper scientific framing (sample sizes, p-values, exploratory vs confirmatory caveats).
 
 ## Features
 

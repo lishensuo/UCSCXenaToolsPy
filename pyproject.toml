@@ -40,15 +40,10 @@ api = [
     "mygene>=3.2",
 ]
 dev = [
+    "ucscxenatoolspy[api]",
     "pytest>=7.0",
     "pytest-httpx>=0.30",
     "pytest-cov>=4.0",
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.27",
-    "slowapi>=0.1.9",
-    "redis>=4.2",
-    "scipy>=1.10",
-    "mygene>=3.2",
 ]
 docs = [
     "sphinx>=7.0",
