@@ -183,6 +183,205 @@ survival = tcga_survival()
 # 5  TCGA-OR-A5J7-01  1.0    490.0  1.0     490.0  NaN       NaN  1.0     162.0
 ```
 
+## TCGA Analysis API
+
+A FastAPI web service providing statistical analysis on TCGA gene expression data. Start the server and query via browser or `curl`.
+
+Install the optional API dependencies before running the service:
+
+```bash
+pip install "ucscxenatoolspy[api]"
+
+# or, from a local checkout
+pip install -e ".[api]"
+```
+
+### Start the server
+
+```bash
+cd ucscxenatoolspy
+uvicorn ucscxenatoolspy.api_service.main:app --reload --port 8765
+```
+
+Interactive docs at [http://127.0.0.1:8765/docs](http://127.0.0.1:8765/docs).
+
+### Public deployment settings
+
+For an internet-facing deployment, configure these environment variables before starting `uvicorn`:
+
+```bash
+# Require clients to send X-API-Key: <one-of-these-values>
+UCSCXENA_API_KEYS="change-me,second-key"
+
+# Restrict browser callers to your frontend domains
+UCSCXENA_CORS_ORIGINS="https://example.org,https://app.example.org"
+
+# Disable interactive docs on the public host
+UCSCXENA_ENABLE_DOCS=false
+
+# If running behind a trusted reverse proxy, use X-Forwarded-For / X-Real-IP
+UCSCXENA_TRUST_PROXY_HEADERS=true
+
+# Use shared rate-limit state across workers/containers
+UCSCXENA_RATE_LIMIT_STORAGE_URI="redis://localhost:6379/0"
+
+# Bound expensive analysis work
+UCSCXENA_ANALYSIS_CONCURRENCY=4
+UCSCXENA_ANALYSIS_TIMEOUT_SECONDS=120
+
+# Optional: disable external mygene fallback for unknown identifiers
+UCSCXENA_ENABLE_MYGENE=false
+```
+
+### Endpoints
+
+| Method | Path | Rate | Description |
+|--------|------|------|-------------|
+| GET | `/health` | none | Health check for monitoring probes |
+| GET | `/` | 60/min | API info and endpoint listing |
+| GET | `/api/v1/cancers` | 60/min | List all 33+ cancers with tumor/normal sample counts |
+| GET | `/api/v1/diff-expr` | 10/min | Differential expression: tumor vs normal (Wilcoxon) |
+| GET | `/api/v1/corr` | 10/min | Spearman correlation between two genes in tumors |
+| GET | `/api/v1/survival` | 5/min | Survival analysis: gene expression vs 4 endpoints (log-rank) |
+
+Legacy `/api/*` paths redirect to `/api/v1/*` with a `308 Permanent Redirect`.
+
+### Differential Expression
+
+```
+GET /api/v1/diff-expr?gene=TP53&cancer=LUAD
+```
+
+```json
+{
+  "gene": "TP53",
+  "cancer": "LUAD",
+  "cancer_full_name": "Lung adenocarcinoma",
+  "dataset": "tcga_RSEM_gene_tpm",
+  "tumor":   {"n": 501, "mean": 5.887, "median": 5.799},
+  "normal":  {"n": 119, "mean": 4.123, "median": 4.001},
+  "log2_fold_change": 1.764,
+  "p_value": 2.3e-15,
+  "test": "Wilcoxon rank-sum (Mann-Whitney U, two-sided)"
+}
+```
+
+Parameters:
+- `gene` - HUGO gene symbol or supported identifier (TP53, EGFR, HER2, 7157, ENSG00000141510). Aliases and IDs are resolved with mygene and must map to a gene present in `tcga_RSEM_gene_tpm`.
+- `cancer` - TCGA abbreviation, case-insensitive (LUAD, brca, KIRC, ...). Requires at least 3 normal samples (e.g. LAML returns 400).
+
+`log2_fold_change` is computed as the tumor mean minus the normal mean because `tcga_RSEM_gene_tpm` values are already log2(TPM + 0.001) transformed.
+
+### Gene Correlation
+
+```
+GET /api/v1/corr?gene1=TP53&gene2=EGFR&cancer=LUAD
+```
+
+```json
+{
+  "gene1": "TP53",
+  "gene2": "EGFR",
+  "cancer": "LUAD",
+  "cancer_full_name": "Lung adenocarcinoma",
+  "sample_type": "primary_tumor",
+  "n": 501,
+  "spearman_r": 0.1234,
+  "p_value": 0.0056,
+  "test": "Spearman rank correlation (two-sided)"
+}
+```
+
+Only primary tumor (TP) samples are used. Requires at least 5 common samples after intersecting both genes' expression data.
+
+### Survival Analysis
+
+```
+GET /api/v1/survival?gene=TP53&cancer=LUAD
+```
+
+```json
+{
+  "gene": "TP53",
+  "cancer": "LUAD",
+  "cancer_full_name": "Lung adenocarcinoma",
+  "sample_type": "primary_tumor",
+  "test": "Log-rank test",
+  "survival": {
+    "OS": {
+      "name": "Overall Survival",
+      "n_total": 501, "n_events": 187,
+      "median_cutoff": {
+        "method": "median",
+        "cutoff": 5.799,
+        "high": {"n": 251, "n_events": 80, "mean_survival_days": 1200.5},
+        "low":  {"n": 250, "n_events": 107, "mean_survival_days": 900.3},
+        "p_value": 0.012
+      },
+      "optimal_cutoff": {
+        "method": "optimal_cutoff",
+        "cutoff": 6.234,
+        "high": {"n": 150, "n_events": 35, "mean_survival_days": 1500.2},
+        "low":  {"n": 351, "n_events": 152, "mean_survival_days": 800.1},
+        "p_value": 0.0003
+      },
+      "optimal_cutoff_note": "Exploratory minimum-p scan across candidate cutoffs; p_value is not adjusted for multiple cutoff testing."
+    },
+    "DSS": { ... },
+    "DFI": { ... },
+    "PFI": { ... }
+  }
+}
+```
+
+Four survival endpoints: OS (Overall), DSS (Disease-Specific), DFI (Disease-Free Interval), PFI (Progression-Free Interval). Each evaluated with **median cutoff** (high vs low expression split at median) and **optimal cutoff** (scanned across p25-p75 for the smallest log-rank p value, minimum 10% in each group). The optimal-cutoff p value is exploratory and is not adjusted for testing multiple cutoffs. Requires at least 10 samples with both expression and survival data.
+
+### Gene Alias Resolution
+
+The API accepts multiple gene identifier formats and resolves them automatically:
+
+| Input type | Example | Resolution |
+|------------|---------|------------|
+| Standard symbol | `TP53` | Exact match (instant) |
+| Common alias | `HER2` | mygene -> `ERBB2` |
+| Entrez Gene ID | `7157` | mygene -> `TP53` |
+| Ensembl ID | `ENSG00000141510` | mygene -> `TP53` |
+| Case-insensitive | `tp53` | Case-insensitive lookup -> `TP53` |
+
+When a gene is resolved (not an exact match), the response includes `gene_input` with the original query string.
+
+### Architecture
+
+```text
+src/ucscxenatoolspy/api_service/
+  main.py        # FastAPI app, routes, middleware, rate limiting
+  analysis.py    # Core stats: Wilcoxon, Spearman, log-rank
+  gene_utils.py  # Gene name resolution (exact -> case-insensitive -> mygene)
+  cache_utils.py # In-memory TTL cache with LRU eviction
+  gene_list.txt  # Bundled valid gene list from tcga_RSEM_gene_tpm
+```
+
+Security: gene input is length-bounded and limited to gene identifier characters (`^[A-Za-z0-9][A-Za-z0-9@._-]{0,29}$`), rate limiting per endpoint, error messages sanitized (URLs and retry info stripped), `X-Request-ID` on every response.
+
+### Quick Test
+
+```bash
+# List available cancers
+curl http://127.0.0.1:8765/api/v1/cancers | python -m json.tool
+
+# Differential expression
+curl "http://127.0.0.1:8765/api/v1/diff-expr?gene=TP53&cancer=LUAD" | python -m json.tool
+
+# Gene correlation
+curl "http://127.0.0.1:8765/api/v1/corr?gene1=TP53&gene2=EGFR&cancer=LUAD" | python -m json.tool
+
+# Survival analysis
+curl "http://127.0.0.1:8765/api/v1/survival?gene=TP53&cancer=LUAD" | python -m json.tool
+
+# Health check
+curl http://127.0.0.1:8765/health
+```
+
 ## Features
 
 - **Core workflow**: Generate, Filter, Query, Download, Prepare (mirrors R package)

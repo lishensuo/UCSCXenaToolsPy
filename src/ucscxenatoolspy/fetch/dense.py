@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 
+import numpy as np
 import pandas as pd
 
 from ucscxenatoolspy.api.datalog import (
@@ -20,6 +21,7 @@ from ucscxenatoolspy.api.datalog import (
     _p_dataset_gene_probe_avg,
 )
 from ucscxenatoolspy.core.xena_data import load_xena_data
+from ucscxenatoolspy.core.defaults import HOST_NAME_TO_URL
 
 
 def fetch_dataset_samples(host: str, dataset: str, limit: int | None = None) -> list[str]:
@@ -56,12 +58,12 @@ def fetch_dataset_identifiers(host: str, dataset: str) -> list[str]:
     return []
 
 
-def has_probeMap(host: str, dataset: str, return_url: bool = False) -> bool | str:
+def has_probeMap(host: str | None = None, dataset: str | None = None, return_url: bool = False) -> bool | str:
     """Check if a dataset has a ProbeMap for gene-to-probe mapping.
 
     Args:
-        host: Xena host URL.
-        dataset: Dataset name.
+        host: Xena host URL or short name. None = search all hosts by dataset name.
+        dataset: Dataset name. None = not supported, returns False.
         return_url: If True and probeMap exists, return the download URL.
 
     Returns:
@@ -69,9 +71,19 @@ def has_probeMap(host: str, dataset: str, return_url: bool = False) -> bool | st
         and probeMap exists, returns the full download URL.
     """
     xena_data = load_xena_data()
-    match = xena_data.loc[
-        (xena_data["XenaHosts"] == host) & (xena_data["XenaDatasets"] == dataset)
-    ]
+
+    if host is not None:
+        # Resolve short name to URL
+        if host in HOST_NAME_TO_URL:
+            host = HOST_NAME_TO_URL[host]
+        match = xena_data.loc[
+            (xena_data["XenaHosts"] == host) & (xena_data["XenaDatasets"] == dataset)
+        ]
+    elif dataset is not None:
+        # Search all hosts by dataset name
+        match = xena_data.loc[xena_data["XenaDatasets"] == dataset]
+    else:
+        return False
 
     if match.empty:
         return False
@@ -81,7 +93,8 @@ def has_probeMap(host: str, dataset: str, return_url: bool = False) -> bool | st
         return False
 
     if return_url:
-        return f"{host}/download/{probe_map}"
+        host_url = match.iloc[0].get("XenaHosts")
+        return f"{host_url}/download/{probe_map}"
     return True
 
 
@@ -164,8 +177,12 @@ def fetch_dense_values(
         if isinstance(result, list) and len(result) > 0 and "scores" in result[0]:
             data = {}
             for item in result:
-                data[item["gene"]] = item["scores"][0]
-            return pd.DataFrame(data, index=samples).T
+                scores = item["scores"][0] if item["scores"] else None
+                if scores and len(scores) > 0:
+                    data[item["gene"]] = scores
+            if data:
+                return pd.DataFrame(data, index=samples).T
+        # probeMap returned no matching genes or empty scores — fall through to default fetch
 
     # Default fetch path
     result = _retry_query(
@@ -173,6 +190,9 @@ def fetch_dense_values(
         time_limit,
     )
     # result is a 2D list: rows=identifiers, cols=samples
+    if len(result) == 0:
+        # No matching identifiers — return all NaN
+        return pd.DataFrame({s: [np.nan] for s in samples}, index=identifiers)
     return pd.DataFrame(result, index=identifiers, columns=samples)
 
 

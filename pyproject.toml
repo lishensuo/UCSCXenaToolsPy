@@ -31,10 +31,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "slowapi>=0.1.9",
+    "redis>=4.2",
+    "scipy>=1.10",
+    "mygene>=3.2",
+]
 dev = [
     "pytest>=7.0",
     "pytest-httpx>=0.30",
     "pytest-cov>=4.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "slowapi>=0.1.9",
+    "redis>=4.2",
+    "scipy>=1.10",
+    "mygene>=3.2",
 ]
 docs = [
     "sphinx>=7.0",
@@ -53,7 +67,21 @@ Documentation = "https://ucscxenatoolspy.readthedocs.io/"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ucscxenatoolspy"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/ucscxenatoolspy/api_service/gene_list.txt" = "ucscxenatoolspy/api_service/gene_list.txt"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
 [tool.pytest.ini_options]
+addopts = "-m \"not integration\""
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests that require live Xena servers",
