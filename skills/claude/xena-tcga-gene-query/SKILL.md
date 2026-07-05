@@ -7,7 +7,7 @@ description: Query TCGA tumor biology through the ucscxenatoolspy FastAPI servic
 
 ## Overview
 
-Use the deployed ucscxenatoolspy API to answer gene-cancer questions for tumor scientists. The default base URL is `https://ucscxenatoolspy.onrender.com`; override it if the user gives another deployment URL or `UCSCXENA_API_BASE_URL` is set.
+Use the deployed ucscxenatoolspy API to answer gene-cancer questions for tumor scientists. The default base URL is `http://biotree.top:38123/ucscxena/` (primary, fast ~0.2s). Fallback to `https://ucscxenatoolspy.onrender.com` if the primary is unreachable. Override if the user gives another deployment URL or `UCSCXENA_API_BASE_URL` is set.
 
 This skill supports four API tasks:
 
@@ -19,12 +19,12 @@ This skill supports four API tasks:
 ## Quick Workflow
 
 1. Confirm the API service is reachable before any biological query. Try in this order:
-   - **Remote first:** `curl https://ucscxenatoolspy.onrender.com/health` — use this URL if it responds OK.
-   - **Local fallback:** If remote is unreachable (Render free tier may spin down), try `curl http://127.0.0.1:8765/health` — use this URL if it responds OK.
-   - **Neither available:** Tell the user both endpoints are down and give the local setup steps:
+   - **Primary first (fast, always-on):** `curl http://biotree.top:38123/ucscxena/health` — use this URL if it responds OK (~0.2s).
+   - **Remote fallback:** If biotree is unreachable, try `curl https://ucscxenatoolspy.onrender.com/health` — use this URL if it responds OK (Render free tier may need ~30s cold start).
+   - **Local fallback:** If both remotes are unreachable, try `curl http://127.0.0.1:8765/health` — use this URL if it responds OK.
+   - **None available:** Tell the user all endpoints are down and give the local setup steps:
      ```
-     Remote API at ucscxenatoolspy.onrender.com is unavailable, and no local service
-     is running. To run the API locally:
+     All API endpoints are unavailable. To run the API locally:
      
        git clone https://github.com/lishensuo/UCSCXenaToolsPy.git
        cd UCSCXenaToolsPy/ucscxenatoolspy
@@ -40,7 +40,7 @@ This skill supports four API tasks:
    - `curl "<BASE_URL>/api/v1/diff-expr?gene=TP53&cancer=LUAD"`
    - `curl "<BASE_URL>/api/v1/corr?gene1=TP53&gene2=EGFR&cancer=LUAD"`
    - `curl "<BASE_URL>/api/v1/survival?gene=TP53&cancer=LUAD"`
-   (Replace `<BASE_URL>` with `https://ucscxenatoolspy.onrender.com` or `http://127.0.0.1:8765`.)
+   (Replace `<BASE_URL>` with `http://biotree.top:38123/ucscxena/`, `https://ucscxenatoolspy.onrender.com`, or `http://127.0.0.1:8765`.)
 4. The helper script `scripts/query_tcga_api.py` provides compact one-line summaries via its `summarize()` function. Use it when you want deterministic formatting:
    - `python .claude/skills/xena-tcga-gene-query/scripts/query_tcga_api.py diff-expr --gene TP53 --cancer LUAD`
 5. If API key auth is enabled, pass `-H "X-API-Key: VALUE"` with curl, or `--api-key VALUE` with the script.
@@ -87,10 +87,10 @@ For broad questions like "TP53在肺癌中的作用" or "What is the role of TP5
 
 ## Running The Helper Script
 
-Before running task-specific commands, confirm the service is reachable (remote first, then local fallback):
+Before running task-specific commands, confirm the service is reachable (primary first, then remote fallback, then local):
 
 ```bash
-curl https://ucscxenatoolspy.onrender.com/health || curl http://127.0.0.1:8765/health
+curl http://biotree.top:38123/ucscxena/health || curl https://ucscxenatoolspy.onrender.com/health || curl http://127.0.0.1:8765/health
 ```
 
 Then, from any working directory, run:
@@ -104,7 +104,7 @@ python .claude/skills/xena-tcga-gene-query/scripts/query_tcga_api.py survival --
 
 Common options:
 
-- `--base-url URL` overrides the API URL. Use `https://ucscxenatoolspy.onrender.com` (remote) or `http://127.0.0.1:8765` (local), whichever is reachable.
+- `--base-url URL` overrides the API URL. Use `http://biotree.top:38123/ucscxena/` (primary), `https://ucscxenatoolspy.onrender.com` (fallback), or `http://127.0.0.1:8765` (local), whichever is reachable.
 - `--api-key VALUE` sends `X-API-Key: VALUE`.
 - `--timeout 120` adjusts request timeout seconds.
 - `--json` returns raw JSON without a short human summary.

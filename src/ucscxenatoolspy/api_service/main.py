@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import re
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +28,7 @@ from ucscxenatoolspy.api_service.analysis import (
     get_available_cancers,
     survival_analysis,
 )
+from ucscxenatoolspy.api_service.cache_utils import _MISS
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,42 @@ RATE_LIMIT_STORAGE_URI = os.getenv("UCSCXENA_RATE_LIMIT_STORAGE_URI")
 _analysis_executor = ThreadPoolExecutor(
     max_workers=ANALYSIS_CONCURRENCY,
     thread_name_prefix="tcga-analysis",
+)
+
+
+class _SimpleRateLimiter:
+    """Thread-safe sliding-window rate limiter for per-endpoint, per-IP limits.
+
+    Only applied on cache *misses* so that repeated identical queries (cache
+    hits) do not consume the client's budget.
+    """
+
+    def __init__(self) -> None:
+        self._store: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, key: str, limit: int, window: float = 60.0) -> bool:
+        now = time.monotonic()
+        with self._lock:
+            timestamps = self._store.get(key, [])
+            timestamps = [t for t in timestamps if now - t < window]
+            if len(timestamps) >= limit:
+                self._store[key] = timestamps
+                return False
+            timestamps.append(now)
+            self._store[key] = timestamps
+            return True
+
+
+_analysis_limiter = _SimpleRateLimiter()
+_RATE_429 = JSONResponse(
+    status_code=429,
+    content={
+        "error": (
+            "Rate limit exceeded for analysis endpoint. "
+            "Please wait before making more requests."
+        )
+    },
 )
 
 
@@ -228,13 +266,22 @@ async def list_cancers(request: Request):
 
 
 @app.get(f"{V1}/diff-expr")
-@limiter.limit("10/minute")
 async def diff_expr(
     request: Request,
     gene: str = GeneQuery(),
     cancer: str = CANCER_QUERY,
 ):
     """Differential expression: tumor vs normal."""
+    # Cache hit → no rate-limit cost
+    cached = diff_expr_analysis.peek(gene=gene, cancer=cancer)
+    if cached is not _MISS:
+        return cached
+
+    # Cache miss → enforce per-IP rate limit (30/min)
+    ip = _client_ip(request)
+    if not _analysis_limiter.is_allowed(f"diff-expr:{ip}", limit=30):
+        return _RATE_429
+
     try:
         return await _run_analysis(diff_expr_analysis, gene=gene, cancer=cancer)
     except ValueError as e:
@@ -246,7 +293,6 @@ async def diff_expr(
 
 
 @app.get(f"{V1}/corr")
-@limiter.limit("10/minute")
 async def corr(
     request: Request,
     gene1: str = GeneQuery(),
@@ -254,6 +300,16 @@ async def corr(
     cancer: str = CANCER_QUERY,
 ):
     """Spearman correlation between two genes in primary tumor samples."""
+    # Cache hit → no rate-limit cost
+    cached = corr_analysis.peek(gene1=gene1, gene2=gene2, cancer=cancer)
+    if cached is not _MISS:
+        return cached
+
+    # Cache miss → enforce per-IP rate limit (30/min)
+    ip = _client_ip(request)
+    if not _analysis_limiter.is_allowed(f"corr:{ip}", limit=30):
+        return _RATE_429
+
     try:
         return await _run_analysis(corr_analysis, gene1=gene1, gene2=gene2, cancer=cancer)
     except ValueError as e:
@@ -265,13 +321,22 @@ async def corr(
 
 
 @app.get(f"{V1}/survival")
-@limiter.limit("5/minute")
 async def survival(
     request: Request,
     gene: str = GeneQuery(),
     cancer: str = CANCER_QUERY,
 ):
     """Survival analysis: gene expression vs patient survival."""
+    # Cache hit → no rate-limit cost
+    cached = survival_analysis.peek(gene=gene, cancer=cancer)
+    if cached is not _MISS:
+        return cached
+
+    # Cache miss → enforce per-IP rate limit (20/min)
+    ip = _client_ip(request)
+    if not _analysis_limiter.is_allowed(f"survival:{ip}", limit=20):
+        return _RATE_429
+
     try:
         return await _run_analysis(survival_analysis, gene=gene, cancer=cancer)
     except ValueError as e:

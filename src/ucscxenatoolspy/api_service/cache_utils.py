@@ -9,6 +9,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+_MISS = object()  # sentinel returned by peek() when key is absent or expired
+
 
 def ttl_cache(
     ttl: int = 3600,
@@ -86,6 +88,29 @@ def ttl_cache(
                 inflight.clear()
 
         wrapper.cache_clear = cache_clear  # type: ignore[attr-defined]
+
+        # -- peek: check cache without computing or updating LRU order ----------
+        def peek(*args: Any, **kwargs: Any) -> Any:
+            """Return cached value if present and valid, else ``_MISS``.
+
+            This is a non-mutating read: it does NOT update the LRU sequence
+            counter, so it does not affect cache eviction order.
+            """
+            fn_name = getattr(func, "__name__", type(func).__name__)
+            raw = json.dumps(
+                {"fn": fn_name, "args": args, "kwargs": kwargs},
+                sort_keys=True,
+                default=str,
+            )
+            key = hashlib.md5(raw.encode(), usedforsecurity=False).hexdigest()
+            now = time.monotonic()
+            with lock:
+                if key in cache and now - cache_times[key] < ttl:
+                    return cache[key]
+                return _MISS
+
+        wrapper.peek = peek  # type: ignore[attr-defined]
+
         return wrapper
 
     return decorator

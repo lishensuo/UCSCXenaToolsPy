@@ -1,6 +1,6 @@
 # API Reference
 
-Base URL defaults to `https://ucscxenatoolspy.onrender.com`.
+Base URL defaults to `http://biotree.top:38123/ucscxena/` (primary, fast). Fallback: `https://ucscxenatoolspy.onrender.com`.
 
 Authentication: if configured, send `X-API-Key: <key>`.
 

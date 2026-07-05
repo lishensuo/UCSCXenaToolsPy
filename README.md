@@ -187,14 +187,21 @@ survival = tcga_survival()
 
 A FastAPI web service providing statistical analysis on TCGA gene expression data. Start the server and query via browser or `curl`.
 
-> **Live Demo**: A temporary instance is deployed at **[https://ucscxenatoolspy.onrender.com](https://ucscxenatoolspy.onrender.com)** — try it directly without local setup:
+> **Live Demo**: Two deployed instances are available — try the fast one first:
+>
+> ⚡ **Primary (fast)** — **[http://biotree.top:38123/ucscxena/](http://biotree.top:38123/ucscxena/)** (always-on, ~0.2s response):
+>
+> ```bash
+> curl http://biotree.top:38123/ucscxena/health
+> curl "http://biotree.top:38123/ucscxena/api/v1/diff-expr?gene=TP53&cancer=LUAD"
+> ```
+>
+> 🐢 **Fallback** — **[https://ucscxenatoolspy.onrender.com](https://ucscxenatoolspy.onrender.com)** (Render free tier, may need ~30s cold start):
 >
 > ```bash
 > curl https://ucscxenatoolspy.onrender.com/health
 > curl "https://ucscxenatoolspy.onrender.com/api/v1/diff-expr?gene=TP53&cancer=LUAD"
 > ```
->
-> ⚠️ Render free tier spins down after inactivity; the first request may take ~30 seconds to wake up.
 
 Install the optional API dependencies before running the service:
 
@@ -520,7 +527,7 @@ Each skill/agent/rule teaches the AI assistant to:
 - **Survival analysis** — expression-associated survival across OS, DSS, DFI, PFI (log-rank)
 - **Cancer name mapping** — resolves Chinese/English common names (肺癌→LUAD+LUSC, 乳腺癌→BRCA, etc.) and gene aliases (HER2→ERBB2)
 
-The assistant queries the deployed API at `https://ucscxenatoolspy.onrender.com` by default, so no local server setup is required.
+The assistant queries the deployed API at `http://biotree.top:38123/ucscxena/` by default (fast, always-on), falling back to `https://ucscxenatoolspy.onrender.com` if needed — no local server setup is required.
 
 ### Install a Skill
 
